@@ -88,6 +88,9 @@ def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bo
                 continue
 
             out.write(f"# {date_str}\n\n")
+            # Skip initial lines that are blank
+            while filtered_content and not filtered_content[0].strip():
+                filtered_content.pop(0)
             out.write("\n".join(filtered_content) + "\n\n")
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
@@ -152,9 +155,11 @@ def main(notes_dir: Path, month: Optional[str], days_to_keep: Optional[int], del
         except ValueError:
             raise click.BadParameter('Month must be in YYYY-MM format')
     else:
-        # Process all months up through last month
+        # Default beheavior: process all months up through last month
         today = date.today()
-        cutoff_month = f"{today.year}-{today.month-1:02d}" if today.month > 1 else f"{today.year-1}-12"
+        # Get last month in YYYY-MM format
+        last_month = today.replace(day=1) - timedelta(days=1)
+        cutoff_month = f"{last_month.year}-{last_month.month:02d}"
         notes_by_month = get_daily_notes(notes_dir)
 
         # Filter out future months and current month
