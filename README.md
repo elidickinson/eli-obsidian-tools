@@ -23,8 +23,9 @@ uv run dailymonthly.py /path/to/Daily/Notes --month 2024-01
 
 Options:
 - `--month YYYY-MM`: Process specific month only (default is all months prior to the current one)
+- `--days-to-keep N`: Number of days to keep in the notes, ignoring --month if specified
 - `--delete` or `-rm`: Delete daily notes after successful merge
-- `--keep-empty`: Include empty/blank daily notes (skipped by default)
+- `--keep-empty/--no-keep-empty`: Keep empty or whitespace-only notes in output (default: false)
 - `--skip-duplicate-todos`: Skip duplicate To Dos in the monthly note. When used with `--keep-empty` set to false, it will also skip daily notes composed entirely of duplicate To Dos and whitespace.
 - `--append`: Append to existing monthly notes if they exist, instead of overwriting them.
 
