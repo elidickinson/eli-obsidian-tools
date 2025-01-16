@@ -23,6 +23,7 @@ def test_get_daily_notes():
         (tmpdir_path / "2024-01-02.md").write_text("Day 2")
         (tmpdir_path / "2024-02-01.md").write_text("Next month")
         (tmpdir_path / "invalid.md").write_text("Not a daily note")
+        (tmpdir_path / "2024-01-02.zip").write_text("Not a daily note")
 
         # Test without month filter
         notes = get_daily_notes(tmpdir_path)
