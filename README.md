@@ -26,6 +26,7 @@ Options:
 - `--delete` or `-rm`: Delete daily notes after successful merge
 - `--keep-empty`: Include empty/blank daily notes (skipped by default)
 - `--skip-duplicate-todos`: Skip duplicate To Dos in the monthly note. When used with `--keep-empty` set to false, it will also skip daily notes composed entirely of duplicate To Dos and whitespace.
+- `--append`: Append to existing monthly notes if they exist, instead of overwriting them.
 
 ## Behavior
 
