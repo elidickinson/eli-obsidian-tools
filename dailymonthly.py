@@ -52,7 +52,6 @@ def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bo
     if output_file.exists() and not append:
         raise FileExistsError(f"Monthly note {output_file} already exists")
 
-    mode = 'a'
     existing_todos = set()
     if skip_duplicate_todos and output_file.exists():
         with output_file.open('r', encoding='utf-8') as out:
@@ -60,10 +59,11 @@ def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bo
                 if line.startswith('- [ ]'):
                     existing_todos.add(line.strip())
 
-    with output_file.open(mode, encoding='utf-8') as out:
+    with output_file.open('a', encoding='utf-8') as out:
         for note in daily_notes:
             content = note.read_text(encoding='utf-8').strip()
             if not keep_empty and not content:
+                # do not roll up empty daily notes into monthly unless --keep-empty set
                 continue
 
             date_str = note.stem
@@ -73,12 +73,11 @@ def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bo
             lines = content.splitlines()
             filtered_content = []
             for line in lines:
-                if skip_duplicate_todos and line.startswith('- [ ]') and line.strip() in existing_todos:
-                    continue
-                filtered_content.append(line)
-                if line.startswith('- [ ]'):
+                if skip_duplicate_todos and line.startswith('- [ ]'):
+                    if line.strip() in existing_todos:
+                        continue
                     existing_todos.add(line.strip())
-
+                filtered_content.append(line)
             out.write(f"# {date_str}\n\n")
             out.write("\n".join(filtered_content) + "\n\n")
 
@@ -159,7 +158,7 @@ def main(notes_dir: Path, month: Optional[str], days_to_keep: Optional[int], del
 
         output_file = notes_dir / f"{month}.md"
         try:
-            merge_month_notes(daily_notes, output_file, keep_empty, append)
+            merge_month_notes(daily_notes, output_file, keep_empty, append, skip_duplicate_todos)
             click.echo(f"Successfully merged {len(daily_notes)} notes for {month}")
 
             if delete:
