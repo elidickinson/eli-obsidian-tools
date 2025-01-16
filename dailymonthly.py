@@ -47,12 +47,19 @@ def get_daily_notes(notes_dir: Path, target_month: Optional[str] = None) -> dict
 
     return {k: sorted(v) for k, v in notes.items()}
 
-def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bool = False, append: bool = False) -> None:
+def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bool = False, append: bool = False, skip_duplicate_todos: bool = False) -> None:
     """Merge daily notes into a single monthly note with date headers."""
     if output_file.exists() and not append:
         raise FileExistsError(f"Monthly note {output_file} already exists")
 
     mode = 'a'
+    existing_todos = set()
+    if skip_duplicate_todos and output_file.exists():
+        with output_file.open('r', encoding='utf-8') as out:
+            for line in out:
+                if line.startswith('- [ ]'):
+                    existing_todos.add(line.strip())
+
     with output_file.open(mode, encoding='utf-8') as out:
         for note in daily_notes:
             content = note.read_text(encoding='utf-8').strip()
@@ -63,7 +70,17 @@ def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bo
             # Remove any existing date headers to avoid duplication
             content = re.sub(r'^#\s*' + date_str + r'\s*\n', '', content, flags=re.MULTILINE)
 
+            lines = content.splitlines()
+            filtered_content = []
+            for line in lines:
+                if skip_duplicate_todos and line.startswith('- [ ]') and line.strip() in existing_todos:
+                    continue
+                filtered_content.append(line)
+                if line.startswith('- [ ]'):
+                    existing_todos.add(line.strip())
+
             out.write(f"# {date_str}\n\n")
+            out.write("\n".join(filtered_content) + "\n\n")
             out.write(content + "\n\n")
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
@@ -77,9 +94,11 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
               help='Delete daily notes after successful merge')
 @click.option('--keep-empty/--no-keep-empty', default=False,
               help='Keep empty or whitespace-only notes in output (default: false)')
+@click.option('--skip-duplicate-todos', is_flag=True, default=False,
+              help='Skip duplicate To Dos in the monthly note')
 @click.option('--append', is_flag=True, default=False,
               help='Append to existing monthly notes if they exist')
-def main(notes_dir: Path, month: Optional[str], days_to_keep: Optional[int], delete: bool, keep_empty: bool, append: bool) -> None:
+def main(notes_dir: Path, month: Optional[str], days_to_keep: Optional[int], delete: bool, keep_empty: bool, append: bool, skip_duplicate_todos: bool) -> None:
     """
     Merge Obsidian Daily Notes into monthly summary files.
 
