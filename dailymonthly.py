@@ -81,7 +81,6 @@ def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bo
 
             out.write(f"# {date_str}\n\n")
             out.write("\n".join(filtered_content) + "\n\n")
-            out.write(content + "\n\n")
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 

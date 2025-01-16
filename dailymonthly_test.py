@@ -210,5 +210,21 @@ def test_cli_default_behavior():
         # Should not create note for current month
         assert not (tmpdir_path / "2024-03.md").exists()
 
-if __name__ == '__main__':
+def test_no_duplicate_content():
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test daily notes
+        (tmpdir_path / "2024-01-01.md").write_text("Day 1 content")
+        (tmpdir_path / "2024-01-02.md").write_text("Day 2 content")
+
+        daily_notes = sorted(tmpdir_path.glob("2024-01-*.md"))
+        output_file = tmpdir_path / "2024-01.md"
+
+        merge_month_notes(daily_notes, output_file, keep_empty=False)
+
+        content = output_file.read_text()
+        # Check that content is not duplicated
+        assert content.count("Day 1 content") == 1
+        assert content.count("Day 2 content") == 1
     pytest.main([__file__])
