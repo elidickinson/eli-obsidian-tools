@@ -75,6 +75,8 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
               help='Delete daily notes after successful merge')
 @click.option('--keep-empty/--no-keep-empty', default=False,
               help='Keep empty or whitespace-only notes in output (default: false)')
+@click.option('--append', is_flag=True, default=False,
+              help='Append to existing monthly notes if they exist')
 def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool, append: bool) -> None:
     """
     Merge Obsidian Daily Notes into monthly summary files.
