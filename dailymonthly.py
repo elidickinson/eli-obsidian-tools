@@ -20,7 +20,7 @@
 
 import click
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import shutil
 from typing import Optional
 import re
@@ -47,34 +47,68 @@ def get_daily_notes(notes_dir: Path, target_month: Optional[str] = None) -> dict
 
     return {k: sorted(v) for k, v in notes.items()}
 
-def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bool = False) -> None:
+def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bool = False, append: bool = False, skip_duplicate_todos: bool = False) -> None:
     """Merge daily notes into a single monthly note with date headers."""
-    if output_file.exists():
+    if output_file.exists() and not append:
         raise FileExistsError(f"Monthly note {output_file} already exists")
 
-    with output_file.open('w', encoding='utf-8') as out:
+    existing_todos = set()
+    if skip_duplicate_todos and output_file.exists():
+        with output_file.open('r', encoding='utf-8') as out:
+            for line in out:
+                if line.startswith('- [ ]'):
+                    existing_todos.add(line.strip())
+
+    with output_file.open('a', encoding='utf-8') as out:
         for note in daily_notes:
             content = note.read_text(encoding='utf-8').strip()
             if not keep_empty and not content:
+                # do not roll up empty daily notes into monthly unless --keep-empty set
                 continue
 
             date_str = note.stem
             # Remove any existing date headers to avoid duplication
             content = re.sub(r'^#\s*' + date_str + r'\s*\n', '', content, flags=re.MULTILINE)
 
+            lines = content.splitlines()
+            filtered_content = []
+            only_duplicate_todos = True
+            for line in lines:
+                if skip_duplicate_todos and line.startswith('- [ ]'):
+                    if line.strip() in existing_todos:
+                        continue
+                    existing_todos.add(line.strip())
+                    only_duplicate_todos = False
+                elif line.strip():
+                    only_duplicate_todos = False
+                filtered_content.append(line)
+
+            # Skip notes that are only duplicate todos and whitespace
+            if not keep_empty and only_duplicate_todos:
+                continue
+
             out.write(f"# {date_str}\n\n")
-            out.write(content + "\n\n")
+            # Skip initial lines that are blank
+            while filtered_content and not filtered_content[0].strip():
+                filtered_content.pop(0)
+            out.write("\n".join(filtered_content) + "\n\n")
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('notes_dir', type=click.Path(exists=True, path_type=Path))
 @click.option('--month', help='Specific month to process (YYYY-MM format)')
+@click.option('--days-to-keep', type=int, default=None,
+              help='Number of days to keep in the notes, ignoring --month if specified')
 @click.option('--delete', '-rm', is_flag=True, default=False,
               help='Delete daily notes after successful merge')
 @click.option('--keep-empty/--no-keep-empty', default=False,
               help='Keep empty or whitespace-only notes in output (default: false)')
-def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool) -> None:
+@click.option('--skip-duplicate-todos', is_flag=True, default=False,
+              help='Skip duplicate To Dos in the monthly note')
+@click.option('--append', is_flag=True, default=False,
+              help='Append to existing monthly notes if they exist')
+def main(notes_dir: Path, month: Optional[str], days_to_keep: Optional[int], delete: bool, keep_empty: bool, append: bool, skip_duplicate_todos: bool) -> None:
     """
     Merge Obsidian Daily Notes into monthly summary files.
 
@@ -108,16 +142,24 @@ def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool) 
       Process and remove original daily notes:
         $ python dailymonthly.py /path/to/Daily/Notes -rm
     """
-    if month:
+    if days_to_keep is not None:
+        cutoff_date = date.today() - timedelta(days=days_to_keep)
+        notes_by_month = get_daily_notes(notes_dir)
+        notes_by_month = get_daily_notes(notes_dir)
+        for month, daily_notes in notes_by_month.items():
+            notes_by_month[month] = [note for note in daily_notes if datetime.strptime(note.stem, '%Y-%m-%d').date() <= cutoff_date]
+    elif month:
         try:
             datetime.strptime(month, '%Y-%m')
             notes_by_month = get_daily_notes(notes_dir, month)
         except ValueError:
             raise click.BadParameter('Month must be in YYYY-MM format')
     else:
-        # Process all months up through last month
+        # Default beheavior: process all months up through last month
         today = date.today()
-        cutoff_month = f"{today.year}-{today.month-1:02d}" if today.month > 1 else f"{today.year-1}-12"
+        # Get last month in YYYY-MM format
+        last_month = today.replace(day=1) - timedelta(days=1)
+        cutoff_month = f"{last_month.year}-{last_month.month:02d}"
         notes_by_month = get_daily_notes(notes_dir)
 
         # Filter out future months and current month
@@ -130,7 +172,7 @@ def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool) 
 
         output_file = notes_dir / f"{month}.md"
         try:
-            merge_month_notes(daily_notes, output_file, keep_empty)
+            merge_month_notes(daily_notes, output_file, keep_empty, append, skip_duplicate_todos)
             click.echo(f"Successfully merged {len(daily_notes)} notes for {month}")
 
             if delete:

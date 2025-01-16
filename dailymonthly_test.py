@@ -23,6 +23,7 @@ def test_get_daily_notes():
         (tmpdir_path / "2024-01-02.md").write_text("Day 2")
         (tmpdir_path / "2024-02-01.md").write_text("Next month")
         (tmpdir_path / "invalid.md").write_text("Not a daily note")
+        (tmpdir_path / "2024-01-02.zip").write_text("Not a daily note")
 
         # Test without month filter
         notes = get_daily_notes(tmpdir_path)
@@ -70,7 +71,54 @@ def test_merge_month_notes_existing_file():
         with pytest.raises(FileExistsError):
             merge_month_notes(daily_notes, output_file, keep_empty=False)
 
-def test_cli_basic():
+def test_days_to_keep():
+    runner = CliRunner()
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test files across multiple days
+        (tmpdir_path / "2024-01-01.md").write_text("Day 1")
+        (tmpdir_path / "2024-01-02.md").write_text("Day 2")
+        (tmpdir_path / "2024-01-03.md").write_text("Day 3")
+        (tmpdir_path / "2024-01-04.md").write_text("Day 4")
+        (tmpdir_path / "2024-01-05.md").write_text("Day 5")
+        (tmpdir_path / "2024-01-06.md").write_text("Day 6")
+        (tmpdir_path / "2024-01-07.md").write_text("Day 7")
+        (tmpdir_path / "2024-01-08.md").write_text("Day 8")
+
+        # Mock current date to January 8, 2024
+        with patch('dailymonthly.date') as mock_date:
+            mock_date.today.return_value = date(2024, 1, 8)
+            result = runner.invoke(main, [str(tmpdir_path), '--days-to-keep', '7'])
+            assert result.exit_code == 0
+
+        # Check that only the last 7 days are kept
+        content = (tmpdir_path / "2024-01.md").read_text()
+        assert "# 2024-01-02" not in content
+        assert "# 2024-01-08" not in content
+        assert "# 2024-01-01" in content
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test daily notes
+        (tmpdir_path / "2024-01-01.md").write_text("Day 1 content")
+        (tmpdir_path / "2024-01-02.md").write_text("# 2024-01-02\nDay 2 content")
+
+        # Create an existing monthly note
+        output_file = tmpdir_path / "2024-01.md"
+        output_file.write_text("Existing content\n")
+
+        daily_notes = sorted(tmpdir_path.glob("2024-01-*.md"))
+
+        # Append to the existing monthly note
+        merge_month_notes(daily_notes, output_file, keep_empty=False, append=True)
+
+        content = output_file.read_text()
+        assert "Existing content" in content
+        assert "# 2024-01-01" in content
+        assert "Day 1 content" in content
+        assert "# 2024-01-02" in content
+        assert "Day 2 content" in content
     runner = CliRunner()
     with TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -109,7 +157,24 @@ def test_cli_delete_options():
         assert result.exit_code == 0
         assert len(list(tmpdir_path.glob("2024-01-*.md"))) == 0
 
-def test_empty_note_handling():
+def test_skip_duplicate_todos_with_empty_notes():
+    runner = CliRunner()
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test daily notes with duplicate todos and whitespace
+        (tmpdir_path / "2024-01-01.md").write_text("- [ ] Task 1\n- [ ] Task 2")
+        (tmpdir_path / "2024-01-02.md").write_text("- [ ] Task 1\n  \n")  # Duplicate todo and whitespace
+
+        # Run the CLI with --skip-duplicate-todos and without --keep-empty
+        result = runner.invoke(main, [str(tmpdir_path), '--month', '2024-01', '--skip-duplicate-todos'])
+        assert result.exit_code == 0
+
+        content = (tmpdir_path / "2024-01.md").read_text()
+        # Check that the note with only duplicate todos and whitespace is skipped
+        assert content.count("- [ ] Task 1") == 1
+        assert content.count("- [ ] Task 2") == 1
+        assert "# 2024-01-02" not in content
     """Test handling of empty notes with keep-empty flag."""
     runner = CliRunner()
     with TemporaryDirectory() as tmpdir:
@@ -163,5 +228,59 @@ def test_cli_default_behavior():
         # Should not create note for current month
         assert not (tmpdir_path / "2024-03.md").exists()
 
-if __name__ == '__main__':
-    pytest.main([__file__])
+def test_no_duplicate_content():
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test daily notes
+        (tmpdir_path / "2024-01-01.md").write_text("Day 1 content")
+        (tmpdir_path / "2024-01-02.md").write_text("Day 2 content")
+
+        daily_notes = sorted(tmpdir_path.glob("2024-01-*.md"))
+        output_file = tmpdir_path / "2024-01.md"
+
+        merge_month_notes(daily_notes, output_file, keep_empty=False)
+
+        content = output_file.read_text()
+        # Check that content is not duplicated
+        assert content.count("Day 1 content") == 1
+        assert content.count("Day 2 content") == 1
+
+def test_skip_duplicate_todos():
+    """Test that duplicate todos are skipped when --skip-duplicate-todos is used."""
+    runner = CliRunner()
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test daily notes with duplicate todos
+        (tmpdir_path / "2024-01-01.md").write_text("- [ ] Task 1\n- [ ] Task 2")
+        (tmpdir_path / "2024-01-02.md").write_text("- [ ] Task 1\n- [ ] Task 3")
+
+        # Run the CLI with --skip-duplicate-todos
+        result = runner.invoke(main, [str(tmpdir_path), '--month', '2024-01', '--skip-duplicate-todos'])
+        assert result.exit_code == 0
+
+        content = (tmpdir_path / "2024-01.md").read_text()
+        # Check that duplicate todos are skipped
+        assert content.count("- [ ] Task 1") == 1
+        assert content.count("- [ ] Task 2") == 1
+        assert content.count("- [ ] Task 3") == 1
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test daily notes
+        (tmpdir_path / "2024-01-01.md").write_text("Day 1 content")
+        (tmpdir_path / "2024-01-02.md").write_text("- [ ] Task 1\nDay 2 content")
+
+        daily_notes = sorted(tmpdir_path.glob("2024-01-*.md"))
+        output_file = tmpdir_path / "2024-01.md"
+
+        merge_month_notes(daily_notes, output_file, keep_empty=False)
+
+        content = output_file.read_text()
+        # Check that content is not duplicated
+        assert content.count("Day 1 content") == 1
+        assert content.count("Day 2 content") == 1
+        assert content.count("- [ ] Task 1") == 1
+
+pytest.main([__file__, "-v"])
