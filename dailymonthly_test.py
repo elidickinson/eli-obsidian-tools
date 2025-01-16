@@ -70,7 +70,32 @@ def test_merge_month_notes_existing_file():
         with pytest.raises(FileExistsError):
             merge_month_notes(daily_notes, output_file, keep_empty=False)
 
-def test_merge_month_notes_append():
+def test_days_to_keep():
+    runner = CliRunner()
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test files across multiple days
+        (tmpdir_path / "2024-01-01.md").write_text("Day 1")
+        (tmpdir_path / "2024-01-02.md").write_text("Day 2")
+        (tmpdir_path / "2024-01-03.md").write_text("Day 3")
+        (tmpdir_path / "2024-01-04.md").write_text("Day 4")
+        (tmpdir_path / "2024-01-05.md").write_text("Day 5")
+        (tmpdir_path / "2024-01-06.md").write_text("Day 6")
+        (tmpdir_path / "2024-01-07.md").write_text("Day 7")
+        (tmpdir_path / "2024-01-08.md").write_text("Day 8")
+
+        # Mock current date to January 8, 2024
+        with patch('dailymonthly.date') as mock_date:
+            mock_date.today.return_value = date(2024, 1, 8)
+            result = runner.invoke(main, [str(tmpdir_path), '--days-to-keep', '7'])
+            assert result.exit_code == 0
+
+        # Check that only the last 7 days are kept
+        content = (tmpdir_path / "2024-01.md").read_text()
+        assert "# 2024-01-02" in content
+        assert "# 2024-01-08" in content
+        assert "# 2024-01-01" not in content
     with TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
 

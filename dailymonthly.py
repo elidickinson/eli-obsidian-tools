@@ -71,13 +71,15 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('notes_dir', type=click.Path(exists=True, path_type=Path))
 @click.option('--month', help='Specific month to process (YYYY-MM format)')
+@click.option('--days-to-keep', type=int, default=None,
+              help='Number of days to keep in the notes, ignoring --month if specified')
 @click.option('--delete', '-rm', is_flag=True, default=False,
               help='Delete daily notes after successful merge')
 @click.option('--keep-empty/--no-keep-empty', default=False,
               help='Keep empty or whitespace-only notes in output (default: false)')
 @click.option('--append', is_flag=True, default=False,
               help='Append to existing monthly notes if they exist')
-def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool, append: bool) -> None:
+def main(notes_dir: Path, month: Optional[str], days_to_keep: Optional[int], delete: bool, keep_empty: bool, append: bool) -> None:
     """
     Merge Obsidian Daily Notes into monthly summary files.
 
@@ -111,7 +113,11 @@ def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool, 
       Process and remove original daily notes:
         $ python dailymonthly.py /path/to/Daily/Notes -rm
     """
-    if month:
+    if days_to_keep is not None:
+        cutoff_date = date.today() - timedelta(days=days_to_keep)
+        notes_by_month = get_daily_notes(notes_dir)
+        notes_by_month = {k: [note for note in v if datetime.strptime(note.stem, '%Y-%m-%d').date() >= cutoff_date] for k, v in notes_by_month.items()}
+    elif month:
         try:
             datetime.strptime(month, '%Y-%m')
             notes_by_month = get_daily_notes(notes_dir, month)
