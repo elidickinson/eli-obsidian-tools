@@ -47,12 +47,13 @@ def get_daily_notes(notes_dir: Path, target_month: Optional[str] = None) -> dict
 
     return {k: sorted(v) for k, v in notes.items()}
 
-def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bool = False) -> None:
+def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bool = False, append: bool = False) -> None:
     """Merge daily notes into a single monthly note with date headers."""
-    if output_file.exists():
+    if output_file.exists() and not append:
         raise FileExistsError(f"Monthly note {output_file} already exists")
 
-    with output_file.open('w', encoding='utf-8') as out:
+    mode = 'a' if append else 'w'
+    with output_file.open(mode, encoding='utf-8') as out:
         for note in daily_notes:
             content = note.read_text(encoding='utf-8').strip()
             if not keep_empty and not content:
@@ -74,7 +75,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
               help='Delete daily notes after successful merge')
 @click.option('--keep-empty/--no-keep-empty', default=False,
               help='Keep empty or whitespace-only notes in output (default: false)')
-def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool) -> None:
+def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool, append: bool) -> None:
     """
     Merge Obsidian Daily Notes into monthly summary files.
 
@@ -130,7 +131,7 @@ def main(notes_dir: Path, month: Optional[str], delete: bool, keep_empty: bool) 
 
         output_file = notes_dir / f"{month}.md"
         try:
-            merge_month_notes(daily_notes, output_file, keep_empty)
+            merge_month_notes(daily_notes, output_file, keep_empty, append)
             click.echo(f"Successfully merged {len(daily_notes)} notes for {month}")
 
             if delete:
