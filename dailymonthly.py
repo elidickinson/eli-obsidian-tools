@@ -72,12 +72,21 @@ def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bo
 
             lines = content.splitlines()
             filtered_content = []
+            only_duplicate_todos = True
             for line in lines:
                 if skip_duplicate_todos and line.startswith('- [ ]'):
                     if line.strip() in existing_todos:
                         continue
                     existing_todos.add(line.strip())
+                    only_duplicate_todos = False
+                elif line.strip():
+                    only_duplicate_todos = False
                 filtered_content.append(line)
+
+            # Skip notes that are only duplicate todos and whitespace
+            if not keep_empty and only_duplicate_todos:
+                continue
+
             out.write(f"# {date_str}\n\n")
             out.write("\n".join(filtered_content) + "\n\n")
 

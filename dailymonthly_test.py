@@ -156,7 +156,24 @@ def test_cli_delete_options():
         assert result.exit_code == 0
         assert len(list(tmpdir_path.glob("2024-01-*.md"))) == 0
 
-def test_empty_note_handling():
+def test_skip_duplicate_todos_with_empty_notes():
+    runner = CliRunner()
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test daily notes with duplicate todos and whitespace
+        (tmpdir_path / "2024-01-01.md").write_text("- [ ] Task 1\n- [ ] Task 2")
+        (tmpdir_path / "2024-01-02.md").write_text("- [ ] Task 1\n  \n")  # Duplicate todo and whitespace
+
+        # Run the CLI with --skip-duplicate-todos and without --keep-empty
+        result = runner.invoke(main, [str(tmpdir_path), '--month', '2024-01', '--skip-duplicate-todos'])
+        assert result.exit_code == 0
+
+        content = (tmpdir_path / "2024-01.md").read_text()
+        # Check that the note with only duplicate todos and whitespace is skipped
+        assert content.count("- [ ] Task 1") == 1
+        assert content.count("- [ ] Task 2") == 1
+        assert "# 2024-01-02" not in content
     """Test handling of empty notes with keep-empty flag."""
     runner = CliRunner()
     with TemporaryDirectory() as tmpdir:
