@@ -116,7 +116,9 @@ def main(notes_dir: Path, month: Optional[str], days_to_keep: Optional[int], del
     if days_to_keep is not None:
         cutoff_date = date.today() - timedelta(days=days_to_keep)
         notes_by_month = get_daily_notes(notes_dir)
-        notes_by_month = {k: [note for note in v if datetime.strptime(note.stem, '%Y-%m-%d').date() > cutoff_date] for k, v in notes_by_month.items()}
+        notes_by_month = get_daily_notes(notes_dir)
+        for month, daily_notes in notes_by_month.items():
+            notes_by_month[month] = [note for note in daily_notes if datetime.strptime(note.stem, '%Y-%m-%d').date() <= cutoff_date]
     elif month:
         try:
             datetime.strptime(month, '%Y-%m')
