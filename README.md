@@ -25,6 +25,7 @@ Options:
 - `--month YYYY-MM`: Process specific month only (default is all months prior to the current one)
 - `--delete` or `-rm`: Delete daily notes after successful merge
 - `--keep-empty`: Include empty/blank daily notes (skipped by default)
+- `--skip-duplicate-todos`: Skip duplicate To Dos in the monthly note. When used with `--keep-empty` set to false, it will also skip daily notes composed entirely of duplicate To Dos and whitespace.
 
 ## Behavior
 
