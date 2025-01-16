@@ -52,7 +52,7 @@ def merge_month_notes(daily_notes: list[Path], output_file: Path, keep_empty: bo
     if output_file.exists() and not append:
         raise FileExistsError(f"Monthly note {output_file} already exists")
 
-    mode = 'a' if append else 'w'
+    mode = 'a'
     with output_file.open(mode, encoding='utf-8') as out:
         for note in daily_notes:
             content = note.read_text(encoding='utf-8').strip()

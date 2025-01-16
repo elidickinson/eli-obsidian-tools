@@ -70,7 +70,29 @@ def test_merge_month_notes_existing_file():
         with pytest.raises(FileExistsError):
             merge_month_notes(daily_notes, output_file, keep_empty=False)
 
-def test_cli_basic():
+def test_merge_month_notes_append():
+    with TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+
+        # Create test daily notes
+        (tmpdir_path / "2024-01-01.md").write_text("Day 1 content")
+        (tmpdir_path / "2024-01-02.md").write_text("# 2024-01-02\nDay 2 content")
+
+        # Create an existing monthly note
+        output_file = tmpdir_path / "2024-01.md"
+        output_file.write_text("Existing content\n")
+
+        daily_notes = sorted(tmpdir_path.glob("2024-01-*.md"))
+
+        # Append to the existing monthly note
+        merge_month_notes(daily_notes, output_file, keep_empty=False, append=True)
+
+        content = output_file.read_text()
+        assert "Existing content" in content
+        assert "# 2024-01-01" in content
+        assert "Day 1 content" in content
+        assert "# 2024-01-02" in content
+        assert "Day 2 content" in content
     runner = CliRunner()
     with TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
