@@ -227,4 +227,5 @@ def test_no_duplicate_content():
         # Check that content is not duplicated
         assert content.count("Day 1 content") == 1
         assert content.count("Day 2 content") == 1
-    pytest.main([__file__])
+
+pytest.main([__file__])
