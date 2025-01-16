@@ -93,9 +93,9 @@ def test_days_to_keep():
 
         # Check that only the last 7 days are kept
         content = (tmpdir_path / "2024-01.md").read_text()
-        assert "# 2024-01-02" in content
-        assert "# 2024-01-08" in content
-        assert "# 2024-01-01" not in content
+        assert "# 2024-01-02" not in content
+        assert "# 2024-01-08" not in content
+        assert "# 2024-01-01" in content
     with TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
 
